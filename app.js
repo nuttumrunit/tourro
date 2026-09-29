@@ -5,30 +5,21 @@ const notice=document.querySelector('#notice');
 let noticeTimer;
 function notify(message){notice.textContent=message;notice.classList.add('show');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>notice.classList.remove('show'),4200)}
 
-const TOKEN_CA='TBA';
+const TOKEN_MINT='TBA';
 const caValue=document.querySelector('#ca-value');
 const copyCA=document.querySelector('#copy-ca');
-if(/^0x[a-fA-F0-9]{40}$/.test(TOKEN_CA)){caValue.textContent=TOKEN_CA;copyCA.disabled=false;copyCA.textContent='COPY CA';copyCA.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(TOKEN_CA);copyCA.textContent='COPIED';notify('Official contract address copied.');setTimeout(()=>copyCA.textContent='COPY CA',1800)}catch{notify('Copy failed. Select the address manually.')}})}
+if(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(TOKEN_MINT)){caValue.textContent=TOKEN_MINT;copyCA.disabled=false;copyCA.textContent='COPY MINT';copyCA.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(TOKEN_MINT);copyCA.textContent='COPIED';notify('Official mint address copied.');setTimeout(()=>copyCA.textContent='COPY MINT',1800)}catch{notify('Copy failed. Select the address manually.')}})}
 
-const chain={chainId:'0x1237',chainName:'Robinhood Chain',nativeCurrency:{name:'Ether',symbol:'ETH',decimals:18},rpcUrls:['https://rpc.mainnet.chain.robinhood.com'],blockExplorerUrls:['https://robinhoodchain.blockscout.com']};
-const announcedProviders=[];
-const boundProviders=new WeakSet();
-window.addEventListener('eip6963:announceProvider',event=>{if(!announcedProviders.some(item=>item.info.uuid===event.detail.info.uuid))announcedProviders.push(event.detail)});
-window.dispatchEvent(new Event('eip6963:requestProvider'));
-function getProvider(){const robinhood=announcedProviders.find(item=>(item.info.rdns||'').toLowerCase().includes('robinhood'));return robinhood&&robinhood.provider||announcedProviders[0]&&announcedProviders[0].provider||window.ethereum||null}
 const wallet=document.querySelector('#wallet');
 const walletText=wallet.querySelector('span');
 let connectedAddress='';
+function getProvider(){return window.phantom&&window.phantom.solana||window.solana||null}
 function shortAddress(address){return address.slice(0,6)+'...'+address.slice(-4)}
-function syncWallet(accounts){connectedAddress=accounts&&accounts[0]||'';walletText.textContent=connectedAddress?shortAddress(connectedAddress):'CONNECT WALLET';wallet.classList.toggle('connected',Boolean(connectedAddress));wallet.title=connectedAddress||'Connect an EVM wallet'}
-function syncChain(chainId){wallet.classList.toggle('wrong-network',Boolean(connectedAddress)&&chainId.toLowerCase()!==chain.chainId)}
-function bindProvider(provider){if(!provider||boundProviders.has(provider)||!provider.on)return;boundProviders.add(provider);provider.on('accountsChanged',syncWallet);provider.on('chainChanged',syncChain);provider.on('disconnect',()=>syncWallet([]))}
-async function addNetwork(){const provider=getProvider();if(!provider){notify('No EVM wallet detected. Open this page in Robinhood Wallet or install a browser wallet.');return false}bindProvider(provider);try{await provider.request({method:'wallet_switchEthereumChain',params:[{chainId:chain.chainId}]});syncChain(chain.chainId);notify('Robinhood Chain is active.');return true}catch(error){if(error.code===4902){try{await provider.request({method:'wallet_addEthereumChain',params:[chain]});syncChain(chain.chainId);notify('Robinhood Chain was added to your wallet.');return true}catch(addError){notify(addError.message||'The network request was declined.');return false}}notify(error.message||'Unable to switch networks.');return false}}
-async function connect(){const provider=getProvider();if(!provider){notify('No EVM wallet detected. Open this page in Robinhood Wallet or install MetaMask.');return}bindProvider(provider);walletText.textContent='CONNECTING...';try{const accounts=await provider.request({method:'eth_requestAccounts'});syncWallet(accounts);if(accounts.length)await addNetwork()}catch(error){syncWallet([]);notify(error.message||'Wallet connection was cancelled.')}}
+function syncWallet(publicKey){connectedAddress=publicKey&&publicKey.toString()||'';walletText.textContent=connectedAddress?shortAddress(connectedAddress):'CONNECT WALLET';wallet.classList.toggle('connected',Boolean(connectedAddress));wallet.title=connectedAddress||'Connect a Solana wallet'}
+function bindProvider(provider){if(!provider||provider.__tourroBound||!provider.on)return;provider.__tourroBound=true;provider.on('connect',syncWallet);provider.on('disconnect',()=>syncWallet(null));provider.on('accountChanged',syncWallet)}
+async function connect(){const provider=getProvider();if(!provider){notify('No Solana wallet detected. Install Phantom or another compatible browser wallet.');return}bindProvider(provider);walletText.textContent='CONNECTING...';try{const response=await provider.connect();syncWallet(response.publicKey||provider.publicKey);notify('Solana wallet connected.')}catch(error){syncWallet(null);notify(error.message||'Wallet connection was cancelled.')}}
 wallet.addEventListener('click',connect);
-document.querySelector('#add-network').addEventListener('click',addNetwork);
-setTimeout(()=>{const provider=getProvider();if(provider){bindProvider(provider);provider.request({method:'eth_accounts'}).then(syncWallet).catch(()=>{});provider.request({method:'eth_chainId'}).then(syncChain).catch(()=>{})}},100);
-
+setTimeout(async()=>{const provider=getProvider();if(provider){bindProvider(provider);try{const response=await provider.connect({onlyIfTrusted:true});syncWallet(response.publicKey||provider.publicKey)}catch{}}},100);
 const agents=[...document.querySelectorAll('.agent')];
 const toast=document.querySelector('#toast');
 function easternTime(){return new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date())+' ET'}
