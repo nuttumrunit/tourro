@@ -5,7 +5,7 @@ const notice=document.querySelector('#notice');
 let noticeTimer;
 function notify(message){notice.textContent=message;notice.classList.add('show');clearTimeout(noticeTimer);noticeTimer=setTimeout(()=>notice.classList.remove('show'),4200)}
 
-const TOKEN_MINT='TBA';
+const TOKEN_MINT='7j34Ne7VzoYvF8s1WZNkKvnuHHpEgKNiXV1C7r8Upump';
 const caValue=document.querySelector('#ca-value');
 const copyCA=document.querySelector('#copy-ca');
 if(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(TOKEN_MINT)){caValue.textContent=TOKEN_MINT;copyCA.disabled=false;copyCA.textContent='COPY MINT';copyCA.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(TOKEN_MINT);copyCA.textContent='COPIED';notify('Official mint address copied.');setTimeout(()=>copyCA.textContent='COPY MINT',1800)}catch{notify('Copy failed. Select the address manually.')}})}
